@@ -1,0 +1,23 @@
+import zipfile
+import os
+
+bundle_filename = r"E:\UCDH\EWR and EWT\UC_Davis_Medical_Center_-_EWR_and_EWT_2024-12-19_NEW2.bundle" # Specify the name of the bundle file
+source_folder = r"E:\UCDH\EWR and EWT\Extracted Bundle"
+
+
+def create_bundle(bundle_filename, source_folder):
+    try:
+        with zipfile.ZipFile(bundle_filename, 'w', zipfile.ZIP_DEFLATED) as bundle:
+            for root, _, files in os.walk(source_folder):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    # Calculate the relative path inside the bundle
+                    rel_path = os.path.relpath(file_path, source_folder)
+                    bundle.write(file_path, arcname=rel_path)
+
+        print(f"Bundle '{bundle_filename}' created successfully.")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+
+
+create_bundle(bundle_filename, source_folder)
