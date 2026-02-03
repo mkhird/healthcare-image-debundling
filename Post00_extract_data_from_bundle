@@ -1,0 +1,23 @@
+import zipfile
+import os
+
+# Update Folder Directories
+bundle_file = r"E:\UCDH\EWR and EWT\UC_Davis_Medical_Center_-_EWR_and_EWT_2024-12-19.bundle" # Replace with the path to your bundle file
+extract_dir = r"E:\UCDH\EWR and EWT\Extracted Bundle"  # Replace with the directory where you want to extract the contents
+
+print('Starting Extraction')
+if not os.path.exists(extract_dir):
+    os.makedirs(extract_dir)
+
+
+def extract_bundle(bundle_file, extract_dir):
+    try:
+        with zipfile.ZipFile(bundle_file, 'r') as zip_ref:
+            zip_ref.extractall(extract_dir)
+        print(f"Contents of '{bundle_file}' extracted to '{extract_dir}' successfully.")
+    except Exception as e:
+        print(f"An error occurred while extracting '{bundle_file}': {str(e)}")
+
+
+extract_bundle(bundle_file, extract_dir)
+print('Done')
