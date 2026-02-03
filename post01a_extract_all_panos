@@ -1,0 +1,82 @@
+''' This script will extract all panorama images to a sinle folder and append the dataset folder name to the end of the file name.'''
+
+from PIL import Image
+import os
+import pandas as pd
+import openpyxl
+
+# DEFINE INPUT FILES
+
+bundle_extraction_dir = r"E:\UCDH\EWR and EWT\Extracted Bundle"
+output_dir = r"E:\UCDH\EWR and EWT\all_panos"
+dataset_names = [
+  '2024-12-06_16.03.25',
+  '2024-12-06_16.41.03',
+  '2024-12-06_16.41.03_1',
+  '2024-12-06_17.12.30',
+  '2024-12-06_17.48.17',
+  '2024-12-06_18.16.44',
+  '2024-12-06_18.31.47',
+  '2024-12-06_18.31.47_1',
+  '2024-12-06_18.54.02',
+  '2024-12-06_18.54.02_1',
+  '2024-12-06_19.18.26',
+  '2024-12-06_19.18.26_1',
+  '2024-12-06_19.35.14',
+  '2024-12-06_19.35.14_1',
+  '2024-12-06_19.56.21',
+  '2024-12-06_19.56.21_1',
+  '2024-12-06_20.30.31',
+  ]
+
+def combine_tiles_to_jpg(bundle_extraction_dir, output_dir):
+         
+    for dataset in dataset_names:
+        tile_dir = os.path.join(bundle_extraction_dir, dataset, 'pano', 'tiles', 'r3')
+        for tileset in os.listdir(tile_dir):
+            
+            for pano_id in range(len(os.listdir(os.path.join(tile_dir,tileset)))//48):   
+                tile_images = []
+                output_file = os.path.join(output_dir,dataset+'_'+'{:05}'.format(pano_id+int(tileset)*100)+'.jpg')     
+        
+                for n in range(48):
+                    tile_path = os.path.join(tile_dir,str(tileset), '{:05}'.format(pano_id+int(tileset)*100)+'-pano-tex-r3-'+'{:02}'.format(n)+'.webp')
+                    tile_image = Image.open(tile_path)
+                    tile_images.append(tile_image)
+
+                # Get the dimensions of the first tile (assuming all tiles have the same size)
+                if tile_images:
+                    tile_width, tile_height = tile_images[0].size
+        
+                    # Calculate the size of the final image
+                    total_width = tile_width * 6
+                    total_height = tile_height * 8
+
+                    # Create a new blank image
+                    combined_image = Image.new("RGB", (total_width, total_height))
+    
+    
+                    # Paste Tiles
+                    img_x_offsets = [0, 2,4,0,2,4]  # Front, Right, Back Left, Top Bottom
+                    img_y_offsets = [0,0,0,4,4,4]
+                    indx_offsets = [0,24,32,8,16,40]
+                    for img_x_offset, img_y_offset, indx_offset in zip(img_x_offsets,img_y_offsets,indx_offsets):
+                        for i in range(0,8):
+                            row = i // 2
+                            col = i % 2
+                            x_offset = (img_x_offset + col)*tile_width
+                            y_offset = (img_y_offset + row)*tile_height
+                            combined_image.paste(tile_images[i+indx_offset],(x_offset,y_offset))
+            
+
+
+                    # Save the combined image as a JPG
+                    combined_image.save(output_file, "JPEG")
+                    for img in tile_images:
+                        img.close()
+                    print(f"Combined image saved as '{output_file}'")
+                else:
+                    print("No valid tile images found in the directory.")
+
+
+combine_tiles_to_jpg(bundle_extraction_dir, output_dir)
