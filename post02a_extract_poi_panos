@@ -1,0 +1,111 @@
+from PIL import Image
+import os
+import pandas as pd
+import openpyxl
+
+# DEFINE INPUT FILES
+poi_locator_file = r"E:\UCDH\EWR and EWT\POI Image Locator.xlsm"
+bundle_extraction_dir = r"E:\UCDH\EWR and EWT\Extracted Bundle"
+output_dir = r"E:\UCDH\EWR and EWT\POI_panos"
+
+
+def get_image_list(exel_file):
+    pano_df = pd.DataFrame(columns=['dataset', 'pano_id'])
+    # Open the Excel file
+    workbook = openpyxl.load_workbook(exel_file, data_only=True)
+
+    # Define the range of cells to loop over
+    start_row = 17
+    start_column = 14  # Column D
+    end_column = 23  # Column G
+    pano_df = pd.DataFrame(columns=['dataset','pano_id'])
+    # Loop over worksheets
+    for sheet_name in workbook.sheetnames:
+        if sheet_name != 'TEMPLATE':
+            worksheet = workbook[sheet_name]
+
+            dataset_name = worksheet.cell(row=8, column=4).value
+            num_rows = worksheet.cell(row=14, column=5).value
+
+            # Initialize a set to store unique values
+            unique_values = set()
+
+            # Loop over the specified range of cells
+            for row in range(start_row, start_row + num_rows-1):
+                for col in range(start_column, end_column + 1):
+                    cell_value = worksheet.cell(row=row, column=col).value
+                    if isinstance(cell_value, (int, float)):
+                        unique_values.add(f'{cell_value:05.0f}')
+                    elif isinstance(cell_value, str) and cell_value.strip() != "":
+                        unique_values.add(cell_value)
+
+            # Create a DataFrame with the desired structure
+            data = {'dataset': [dataset_name] * len(unique_values), 'pano_id': list(unique_values)}
+            print(sheet_name)
+            print(data)
+            pano_df = pd.concat([pano_df,pd.DataFrame(data)],ignore_index=True)
+    workbook.save(poi_locator_file)
+
+    return pano_df
+
+
+def combine_tiles_to_jpg(pano_df, bundle_extraction_dir, output_dir):
+    for idx, pano_data in pano_df.iterrows():
+        tile_images = []
+        dataset = pano_data['dataset']
+        pano_id = pano_data['pano_id']
+       
+
+        
+        tile_dir = os.path.join(bundle_extraction_dir, dataset, 'pano', 'tiles', 'r3', pano_id[2])
+
+
+        if not os.path.exists(os.path.join(output_dir,dataset)):
+            os.makedirs(os.path.join(output_dir,dataset))
+        output_file = os.path.join(output_dir,dataset,pano_id+'.webp')
+
+        # List all tile files in the directory
+        for n in range(48):
+            tile_path = os.path.join(tile_dir, pano_id+'-pano-tex-r3-'+'{:02}'.format(n)+'.webp')
+            tile_image = Image.open(tile_path)
+            tile_images.append(tile_image)
+
+        # Get the dimensions of the first tile (assuming all tiles have the same size)
+        if tile_images:
+            tile_width, tile_height = tile_images[0].size
+
+            # Calculate the size of the final image
+            total_width = tile_width * 6
+            total_height = tile_height * 8
+
+            # Create a new blank image
+            combined_image = Image.new("RGB", (total_width, total_height))
+
+
+            # Paste Tiles
+            img_x_offsets = [0, 2,4,0,2,4]  # Front, Right, Back Left, Top Bottom
+            img_y_offsets = [0,0,0,4,4,4]
+            indx_offsets = [0,24,32,8,16,40]
+            for img_x_offset, img_y_offset, indx_offset in zip(img_x_offsets,img_y_offsets,indx_offsets):
+                for i in range(0,8):
+                    row = i // 2
+                    col = i % 2
+                    x_offset = (img_x_offset + col)*tile_width
+                    y_offset = (img_y_offset + row)*tile_height
+                    combined_image.paste(tile_images[i+indx_offset],(x_offset,y_offset))
+            
+
+
+            # Save the combined image as a JPG
+            combined_image.save(output_file, "WEBP")
+            for img in tile_images:
+                img.close()
+            print(f"Combined image saved as '{output_file}'")
+        else:
+            print("No valid tile images found in the directory.")
+
+
+pano_df = get_image_list(poi_locator_file)
+combine_tiles_to_jpg(pano_df, bundle_extraction_dir, output_dir)
+
+print('Done.')
