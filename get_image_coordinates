@@ -1,0 +1,110 @@
+# -*- coding: utf-8 -*-
+
+
+import os
+import numpy as np
+import json
+from openpyxl import load_workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
+import pandas as pd
+
+"""
+Instructions:
+1. Replace the path to the the extracted_bundle_folder and excel_file below. Be sure to leave the r at the beginning.
+
+2. Provide a list of the dataset sub folders in the dataset_names variable below.
+These can be typed in manually.
+Alternatively, if there are many, click on the python console and type the two following commands:
+    import os <enter>
+    os.listdir(<dataset_folder>) <enter>
+where you replace <dataset_folder> with the same text as you provide in the variable below.
+This will provide a list of the sub-folders that you can copy and paste into the dataset_names variable in this scrip.
+Be sure to delete any sub-folder names that are not actually datasets (such as superseded, etc.)
+
+3. Run the script.
+"""
+
+excel_file = os.path.abspath(
+    r"E:\UCDH\EWR and EWT\POI Image Locator.xlsm")
+extracted_bundle_folder = os.path.abspath(
+    r"E:\UCDH\EWR and EWT\Extracted Bundle")
+
+dataset_names = ['2024-12-06_16.03.25',
+'2024-12-06_16.41.03',
+'2024-12-06_16.41.03_1',
+'2024-12-06_17.12.30',
+'2024-12-06_17.48.17',
+'2024-12-06_18.16.44',
+'2024-12-06_18.31.47',
+'2024-12-06_18.31.47_1',
+'2024-12-06_18.54.02',
+'2024-12-06_18.54.02_1',
+'2024-12-06_19.18.26',
+'2024-12-06_19.18.26_1',
+'2024-12-06_19.35.14',
+'2024-12-06_19.35.14_1',
+'2024-12-06_19.56.21',
+'2024-12-06_19.56.21_1',
+'2024-12-06_20.30.31',
+]
+
+# Set-Up POI Locator Workbook
+workbook = load_workbook(excel_file, keep_vba=True)
+writer = pd.ExcelWriter(excel_file, engine='openpyxl')
+writer.book = workbook
+
+for dataset_name in dataset_names:
+    if dataset_name not in workbook.sheetnames:
+        print(f'creating new worksheet {dataset_name}')
+        workbook.copy_worksheet(workbook['TEMPLATE']).title = dataset_name
+
+    # Get the newly created worksheet
+    worksheet = workbook[dataset_name]
+
+    # Extract and Paste Image Coordinates
+    print(f'Getting coordinates for dataset {dataset_name} images.')
+    info_folder = os.path.join(extracted_bundle_folder, dataset_name, 'info')
+    with open(os.path.join(extracted_bundle_folder, dataset_name, 'alignment.json'), 'r') as alignment_file:
+        alignment_json = json.load(alignment_file)
+        alignment_file.close()
+    transform = alignment_json['transform']
+    r_matrix = np.array([[transform['r11'],transform['r12'],transform['r13']],
+                        [transform['r21'],transform['r22'],transform['r23']],
+                        [transform['r31'],transform['r32'],transform['r33']]])
+    t_vector = np.array([transform['tx'],transform['ty'], transform['tz']])
+
+    xyz = np.empty((0, 3))
+    # x = []
+    # y = []
+    # z = []
+
+    for file_name in os.listdir(info_folder):
+        with open(os.path.join(info_folder, file_name), 'r') as file:
+            json_file = json.load(file)
+            # x.append(json_file['footprint']['position'][0])
+            # y.append(json_file['footprint']['position'][1])
+            # z.append(json_file['footprint']['position'][2])
+
+            xyz_local = np.array([json_file['footprint']['position'][0],
+                         json_file['footprint']['position'][1],
+                         json_file['footprint']['position'][2]])
+
+            xyz_global = t_vector + r_matrix@xyz_local.transpose()
+
+            xyz = np.vstack((xyz, xyz_global))
+            file.close()
+
+    results = pd.DataFrame(xyz, columns=['X', 'Y', 'Z'])
+    results.index.name = 'ImgID'
+
+    # Convert the DataFrame to a list of rows
+    rows = list(dataframe_to_rows(results, index=False, header=False))
+
+    # Paste the data from the DataFrame starting at cell 'C17'
+    for r_idx, row in enumerate(rows, 17):
+        for c_idx, value in enumerate(row, 3):
+            worksheet.cell(row=r_idx, column=c_idx, value=value)
+
+workbook.save(excel_file)
+workbook.close()
+print('Done.')
