@@ -18,3 +18,10 @@ For a step-by-step explanation of the processing workflow, see:
 
 ## Repository Structure
 
+## Pipeline Screenshots
+
+### POI-Based Blurring Workflow
+![POI Tagging](docs/screenshots/poi_tagging_example.png)
+
+### Panorama Redaction
+![Before and After Blurring](docs/screenshots/panorama_before_after.png)
