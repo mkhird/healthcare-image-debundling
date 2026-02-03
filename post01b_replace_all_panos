@@ -1,0 +1,68 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Oct 13 14:43:46 2023
+
+@author: localadmin
+"""
+
+''' This script is used to replace the blurred panoramas into the tile folders within the bundle extraction folder.'''
+
+from PIL import Image
+import os
+
+panos_dir = r"E:\UCDH\EWR and EWT\all_panos_blurred"
+bundle_extraction_dir = r"E:\UCDH\EWR and EWT\Extracted Bundle"
+
+
+def divide_panos_to_tiles(panos_dir, bundle_extraction_dir):
+    num_rows = 8
+    num_columns = 6
+    img_x_offsets = [0, 2,4,0,2,4]  # Front, Right, Back Left, Top Bottom
+    img_y_offsets = [0,0,0,4,4,4]
+    indx_offsets = [0,24,32,8,16,40]
+    sizes = [(1024,512), (512,256), (256,128)]
+    folders = ['r2','r1','r0']
+    
+    panos = os.listdir(panos_dir)
+    for pano in panos:
+        try:
+            pano_image = Image.open(os.path.join(panos_dir,pano))
+            tile_width, tile_height = pano_image.size[0] // num_columns, pano_image.size[1] // num_rows
+            pano_id = pano[-9:-4]
+            dataset = pano[0:-10]
+
+            # Split the combined image into tiles
+            for img_x_offset, img_y_offset, indx_offset in zip(img_x_offsets,img_y_offsets,indx_offsets):
+                for i in range(0,8):
+                    row = i // 2
+                    col = i % 2
+                    left = (img_x_offset + col)*tile_width
+                    upper = (img_y_offset + row)*tile_height
+                    right = left + tile_width
+                    lower = upper + tile_height
+                    tile = pano_image.crop((left, upper, right, lower))
+                    tile_num = '{:02}'.format(indx_offset+i)
+            
+                    # Generate the original tile file name (assuming the original format)
+                    tile_dir = os.path.join(bundle_extraction_dir, dataset, 'pano', 'tiles', 'r3', pano_id[2])
+                    tile_filename = f"{pano_id}-pano-tex-r3-{tile_num}.webp"
+                    tile_path = os.path.join(tile_dir, tile_filename)
+                    tile.save(tile_path, "WEBP")
+
+                    # Shrink and replicate tiles in alternative sub folders
+                    for size, folder in zip(sizes,folders):
+                        tile_dir = os.path.join(bundle_extraction_dir, dataset, 'pano', 'tiles', folder, pano_id[2])
+                        tile_filename = f"{pano_id}-pano-tex-{folder}-{tile_num}.webp"
+                        tile_path = os.path.join(tile_dir, tile_filename)
+
+                        resized_tile = tile.resize(size, Image.ANTIALIAS)
+                        resized_tile.save(tile_path, "WEBP")
+            pano_image.close()
+            print(f"Panorama {pano_id} image divided into tiles.")
+
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+
+
+divide_panos_to_tiles(panos_dir, bundle_extraction_dir)
+print('Done')
